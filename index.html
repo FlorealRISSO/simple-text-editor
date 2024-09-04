@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Text Editor</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* CSS styles go here */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+    }
+
+    .file-list {
+      width: 220px;
+      background-color: #f1f1f1;
+      padding: 20px;
+      overflow-y: auto;
+      border-right: 1px solid #ddd;
+    }
+
+    .file-list ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .file-list li {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .file-list li.active {
+      background-color: #ddd;
+    }
+
+    .text-editor {
+      flex-grow: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .text-editor textarea {
+      flex-grow: 1;
+      width: 100%;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      box-sizing: border-box;
+      resize: none;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    .controls button {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .controls button:hover {
+      color: #007bff;
+    }
+
+    .controls button:focus {
+      outline: none;
+    }
+
+    .file-list input[type="text"] {
+      width: calc(100% - 30px);
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+
+    .file-list button, .file-list input[type="file"] {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="file-list">
+    <input type="text" placeholder="Search..." id="search-input">
+    <ul id="file-list"></ul>
+    <button id="new-file-btn"><i class="fa-solid fa-file-plus"></i> New File</button>
+    <input type="file" id="load-file-input" style="display: none;">
+    <button id="load-file-btn"><i class="fa-solid fa-folder-open"></i> Load File</button>
+    <button id="delete-file-btn"><i class="fa-solid fa-trash"></i> Delete File</button>
+  </div>
+  <div class="text-editor">
+    <input type="text" placeholder="File Title" id="file-title-input">
+    <textarea id="text-area"></textarea>
+    <div class="controls">
+      <button id="save-btn"><i class="fa-solid fa-save"></i> Save</button>
+      <button id="download-btn"><i class="fa-solid fa-download"></i> Download</button>
+    </div>
+  </div>
+
+  <script>
+    const fileList = document.getElementById('file-list');
+    const textArea = document.getElementById('text-area');
+    const downloadBtn = document.getElementById('download-btn');
+    const searchInput = document.getElementById('search-input');
+    const fileTitleInput = document.getElementById('file-title-input');
+    const newFileBtn = document.getElementById('new-file-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const loadFileBtn = document.getElementById('load-file-btn');
+    const loadFileInput = document.getElementById('load-file-input');
+    const deleteFileBtn = document.getElementById('delete-file-btn');
+
+    let files = [];
+    let selectedFile = null;
+
+    // Load files from local storage
+    loadFilesFromStorage();
+
+    // Function to create a new file
+    function createFile(title, content) {
+      const file = { title, content };
+      files.push(file);
+      updateFileList();
+      selectFile(file);
+      saveFilesToStorage();
+    }
+
+    // Function to update the file list
+    function updateFileList() {
+      fileList.innerHTML = '';
+      files.forEach((file, index) => {
+        const li = document.createElement('li');
+        li.textContent = file.title;
+        li.dataset.index = index;
+        li.addEventListener('click', () => selectFile(file));
+        fileList.appendChild(li);
+      });
+    }
+
+    // Function to select a file
+    function selectFile(file) {
+      if (selectedFile) {
+        saveFile(selectedFile);
+      }
+      selectedFile = file;
+      const activeElements = fileList.querySelectorAll('.active');
+      activeElements.forEach(el => el.classList.remove('active'));
+      const selectedElement = fileList.querySelector(`li[data-index="${files.indexOf(file)}"]`);
+      selectedElement.classList.add('active');
+      textArea.value = file.content;
+      fileTitleInput.value = file.title;
+    }
+
+    // Function to save the current file
+    function saveFile(file) {
+      file.content = textArea.value;
+      file.title = fileTitleInput.value;
+      updateFileList();
+      saveFilesToStorage();
+    }
+
+    // Function to download the current file
+    function downloadFile() {
+      if (selectedFile) {
+        const link = document.createElement('a');
+        link.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(selectedFile.content));
+        link.setAttribute('download', `${selectedFile.title}.txt`);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+
+    // Function to create a new file
+    function createNewFile() {
+      const title = 'New File';
+      const content = '';
+      createFile(title, content);
+    }
+
+    // Function to save files to local storage
+    function saveFilesToStorage() {
+      localStorage.setItem('files', JSON.stringify(files));
+    }
+
+    // Function to load files from local storage
+    function loadFilesFromStorage() {
+      const storedFiles = localStorage.getItem('files');
+      if (storedFiles) {
+        files = JSON.parse(storedFiles);
+        updateFileList();
+        if (files.length > 0) {
+          selectFile(files[0]);
+        }
+      }
+    }
+
+    // Function to filter files based on search input
+    function filterFiles() {
+      const searchTerm = searchInput.value.toLowerCase();
+      fileList.innerHTML = '';
+      files
+        .filter(file => file.title.toLowerCase().includes(searchTerm))
+        .forEach((file, index) => {
+          const li = document.createElement('li');
+          li.textContent = file.title;
+          li.dataset.index = index;
+          li.addEventListener('click', () => selectFile(file));
+          fileList.appendChild(li);
+        });
+    }
+
+    // Function to load a file from file input
+    function loadFile() {
+      const file = loadFileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const content = e.target.result;
+          const title = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+          createFile(title, content);
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    // Function to delete the currently selected file
+    function deleteFile() {
+      if (selectedFile) {
+        files = files.filter(file => file !== selectedFile);
+        selectedFile = null;
+        updateFileList();
+        textArea.value = '';
+        fileTitleInput.value = '';
+        saveFilesToStorage();
+      }
+    }
+
+    // Function to handle saving: create new file if none is selected
+    function handleSave() {
+      if (selectedFile) {
+        saveFile(selectedFile);
+      } else {
+        const title = fileTitleInput.value || 'New File';
+        const content = textArea.value;
+        createFile(title, content);
+      }
+    }
+
+    // Add event listeners
+    downloadBtn.addEventListener('click', downloadFile);
+    searchInput.addEventListener('input', filterFiles);
+    newFileBtn.addEventListener('click', createNewFile);
+    saveBtn.addEventListener('click', handleSave);
+    loadFileBtn.addEventListener('click', () => loadFileInput.click());
+    loadFileInput.addEventListener('change', loadFile);
+    deleteFileBtn.addEventListener('click', deleteFile);
+
+    // Example usage (not needed if loading from storage)
+    // createFile('File 1', 'This is the content of File 1.');
+    // createFile('File 2', 'This is the content of File 2.');
+    // createFile('File 3', 'This is the content of File 3.');
+  </script>
+</body>
+</html>
+
